@@ -1,6 +1,6 @@
 {
   "name": "pathogen",
-  "version": "0.1.5",
+  "version": "0.2.0",
   "description": "path utilities for node.js and browsers",
   "main": "index.js",
   "keywords": [
