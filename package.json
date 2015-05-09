@@ -1,0 +1,19 @@
+{
+  "name": "pathogen",
+  "version": "0.1.5",
+  "description": "path utilities for node.js and browsers",
+  "main": "index.js",
+  "keywords": [
+    "path"
+  ],
+  "author": {
+    "name": "Valerio Proietti",
+    "email": "kamicane@gmail.com"
+  },
+  "license": "MIT",
+  "dependencies": {},
+  "devDependencies": {
+    "expect.js": "~0.2.0",
+    "mocha": "~1.15.1"
+  }
+}
