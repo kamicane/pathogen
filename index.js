@@ -23,7 +23,7 @@ var split = function(path) {
   // return parts;
   var up = 0;
 
-  for (var i = parts.length; i--;) {
+  for (var i = parts.length; i--; i) {
     var curr = parts[i];
 
     if (curr === '.') {
@@ -90,7 +90,7 @@ Pathogen.prototype = {
 
     var parts = [];
 
-    for (var i = paths.length; i--;) {
+    for (var i = paths.length; i--; i) {
       var path = paths[i];
       if (path.parts[0] === '') { // absolute path
         absolute = path;
@@ -133,7 +133,7 @@ Pathogen.prototype = {
 
     output = output.concat(toParts.slice(samePartsLength));
     var joined = output.concat(base).join('/');
-    return new Pathogen(!!joined.match(absRe) ? this.drive + joined : joined);
+    return new Pathogen(absRe.test(joined) ? this.drive + joined : joined);
   },
 
   // to*
