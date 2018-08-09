@@ -78,9 +78,23 @@ pathogen.sys.relative(path, path) // path relative to path, system
 
 ## Differences from path
 
-Join with empty string:
+Path fails to join with empty string:
 
 ```js
 path.join('', '/a') // /a
 pathogen('', '/a') // ./a
+```
+
+Path returns `./` when `./` is passed, forgetting to remove trailing slashes:
+
+```js
+path.normalize('./') // ./
+pathogen('./') // .
+```
+
+Path can't normalize specifically to posix:
+
+```js
+path.posix.normalize('/./..//\\\\\\') // /\\\\\\
+pathogen('/./..//\\\\\\') // /
 ```
