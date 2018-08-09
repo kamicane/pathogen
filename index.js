@@ -1,205 +1,185 @@
 /*
 Pathogen
-*/'use strict';
+*/'use strict'
 // Part of the code is derived from node's own path.js
 // Copyright Joyent, Inc. and other Node contributors
 
-var map = Array.prototype.map;
-var slice = Array.prototype.slice;
-
 // regular expressions
 
-var drvRe = /^(.+):/;
-var winRe = /\\+/g;
-var nixRe = /\/+/g;
-var absRe = /^\//;
-var extRe = /\.\w+$/;
+const drvRe = /^(.+):/
+const winRe = /\\+/g
+const nixRe = /\/+/g
+const extRe = /\.\w+$/
 
-var split = function(path) {
-  var parts = (path || '.').split(nixRe);
+function split (path) {
+  const parts = (path || '.').split(nixRe)
+  if (parts.length > 1 && parts[parts.length - 1] === '') parts.pop()
 
-  var p0 = parts[0];
-  if (p0 === '') parts.shift();
-  // return parts;
-  var up = 0;
+  let p0 = parts[0]
+  if (p0 === '') parts.shift()
+  let up = 0
 
-  for (var i = parts.length; i--; i) {
-    var curr = parts[i];
+  for (let i = parts.length; i--; i) {
+    const curr = parts[i]
 
     if (curr === '.') {
-      parts.splice(i, 1);
+      parts.splice(i, 1)
     } else if (curr === '..') {
-      parts.splice(i, 1);
-      up++;
+      parts.splice(i, 1)
+      up++
     } else if (up) {
-      parts.splice(i, 1);
-      up--;
+      parts.splice(i, 1)
+      up--
     }
   }
 
-  if (p0 !== '') {
-    for (; up--; up) parts.unshift('..');
+  if (p0 === '') {
+    if (parts.length) parts.unshift('')
+    else parts.push('', '')
   } else {
-    if (parts.length) parts.unshift('');
-    else parts.push('', '');
+    for (; up--; up) parts.unshift('..')
   }
 
-  p0 = parts[0];
-  if (p0 !== '..' && p0 !== '.' && (p0 !== '' || parts.length === 1)) parts.unshift('.');
+  p0 = parts[0]
+  if (p0 !== '..' && p0 !== '.' && (p0 !== '' || parts.length === 1)) parts.unshift('.')
 
-  return parts;
-};
-
-function Pathogen(path) {
-  path = (path || '') + '';
-  var drive;
-  path = path.replace(drvRe, function(m) {
-    drive = m;
-    return '';
-  });
-  path = path.replace(winRe, '/');
-  this.drive = drive || '';
-  if (this.drive && !path) path = '/';
-  this.parts = split(path);
+  return parts
 }
 
-Pathogen.prototype = {
+function reSplit (parts) {
+  return split(parts.join('/'))
+}
 
-  constructor: Pathogen,
+function fromPaths (...paths) {
+  if (!paths.length) return new Pathogen('', [])
 
-  basename: function() {
-    return this.parts.slice(-1)[0];
-  },
+  const driveMatch = paths[0].match(drvRe)
+  const drive = driveMatch ? `${driveMatch[1]}:` : ''
 
-  dirname: function() {
-    if (!this.basename()) return new Pathogen(this);
-    return new Pathogen(this.drive + this.parts.slice(0, -1).join('/') + '/');
-  },
+  let combined = []
 
-  extname: function() {
-    var m = this.basename().match(extRe);
-    return m ? m[0] : '';
-  },
+  for (let path of paths) {
+    path = path.replace(drvRe, '').replace(winRe, '/')
+    if (!path) path = '.'
+    combined.push(path)
+  }
 
-  resolve: function() {
-    var absolute;
+  if (drive) combined.unshift('')
+  return new Pathogen(drive, combined)
+}
 
-    var paths = [new Pathogen(this)].concat(map.call(arguments, function(path) {
-      return new Pathogen(path);
-    }));
+class Pathogen {
+  constructor (drive, parts) {
+    this.drive = drive
+    this.parts = reSplit(parts)
+  }
 
-    var parts = [];
+  basename () {
+    return this.parts.slice(-1)[0]
+  }
 
-    for (var i = paths.length; i--; i) {
-      var path = paths[i];
-      if (path.parts[0] === '') { // absolute path
-        absolute = path;
-        break;
+  dirname () {
+    if (!this.basename()) return new Pathogen(this.drive, this.parts)
+    return new Pathogen(this.drive, this.parts.slice(0, -1))
+  }
+
+  extname () {
+    const m = this.basename().match(extRe)
+    return m ? m[0] : ''
+  }
+
+  resolve (...paths) {
+    const pathList = [new Pathogen(this.drive, this.parts), ...paths.map((path) => fromPaths(path))]
+
+    let absolutePath
+    const parts = []
+
+    for (let i = pathList.length; i--; i) {
+      const path = pathList[i]
+      if (path.parts[0] === '') { // absolutePath
+        absolutePath = path
+        break
       } else {
-        parts.unshift(path.parts.join('/'));
+        parts.unshift(path.parts.join('/'))
       }
     }
 
-    if (!absolute) absolute = new Pathogen(process.cwd() + '/');
-    return new Pathogen(absolute.drive + absolute.parts.concat(parts).join('/'));
-  },
+    if (!absolutePath) absolutePath = fromPaths(process.cwd())
+    return new Pathogen(absolutePath.drive, [...absolutePath.parts, ...parts])
+  }
 
-  relative: function(to) {
-    var from = this.resolve().dirname();
-    to = new Pathogen(to).resolve();
+  relative (toPath) {
+    toPath = fromPaths(toPath).resolve()
+    const fromPath = this.resolve()
 
-    if (from.drive !== to.drive) return to;
+    if (fromPath.drive !== toPath.drive) return toPath
 
-    var base = to.basename();
-    to = to.dirname();
+    const fromParts = fromPath.parts
+    const toParts = toPath.parts
 
-    var fromParts = from.parts.slice(0, -1);
-    var toParts = to.parts.slice(0, -1);
+    const length = Math.min(fromParts.length, toParts.length)
+    let samePartsLength = length
 
-    var i;
-
-    var length = Math.min(fromParts.length, toParts.length);
-    var samePartsLength = length;
-
-    for (i = 0; i < length; i++) {
+    for (let i = 0; i < length; i++) {
       if (fromParts[i] !== toParts[i]) {
-        samePartsLength = i;
-        break;
+        samePartsLength = i
+        break
       }
     }
 
-    var output = [];
-    for (i = samePartsLength; i < fromParts.length; i++) output.push('..');
+    const output = []
+    for (let i = samePartsLength; i < fromParts.length; i++) output.push('..')
 
-    output = output.concat(toParts.slice(samePartsLength));
-    var joined = output.concat(base).join('/');
-    return new Pathogen(absRe.test(joined) ? this.drive + joined : joined);
-  },
+    output.push(...toParts.slice(samePartsLength))
+
+    return new Pathogen(output[0] === '' ? this.drive : '', output)
+  }
 
   // to*
 
-  toUnix: function() {
-    return this.drive + this.parts.join('/');
-  },
-
-  toSystem: function() {
-    return process.platform === 'win32' ? this.toWindows() : this.toUnix();
-  },
-
-  toWindows: function() {
-    return this.drive + this.parts.join('\\');
-  },
-
-  toString: function() {
-    return this.toUnix();
+  toUnix () {
+    return this.drive + this.parts.join('/')
   }
 
-};
+  toSystem () {
+    return process.platform === 'win32' ? this.toWindows() : this.toUnix()
+  }
+
+  toWindows () {
+    return this.drive + this.parts.join('\\')
+  }
+
+  toString () {
+    return this.toUnix()
+  }
+}
 
 // shortcuts
 
-var pathogen = function(path) {
-  return new Pathogen(path).toUnix();
-};
+function getImplementation (stringType) {
+  const pathogen = (...paths) => fromPaths(...paths)[stringType]()
 
-pathogen.cwd = function() {
-  return new Pathogen(process.cwd() + '/').toString();
-};
+  pathogen.cwd = () => fromPaths(process.cwd())[stringType]()
 
-// toString
+  // toString
 
-pathogen.dirname = function(path) {
-  return new Pathogen(path).dirname().toString();
-};
+  pathogen.dirname = (path) => fromPaths(path).dirname()[stringType]()
 
-pathogen.basename = function(path) {
-  return new Pathogen(path).basename();
-};
+  pathogen.basename = (path) => fromPaths(path).basename()
 
-pathogen.extname = function(path) {
-  return new Pathogen(path).extname();
-};
+  pathogen.extname = (path) => fromPaths(path).extname()
 
-pathogen.resolve = function(path) {
-  return Pathogen.prototype.resolve.apply(path, slice.call(arguments, 1)).toString();
-};
+  pathogen.resolve = (path, ...paths) => fromPaths(path).resolve(...paths)[stringType]()
 
-pathogen.relative = function(path, to) {
-  return new Pathogen(path).relative(to).toString();
-};
+  pathogen.relative = (path, to) => fromPaths(path).relative(to)[stringType]()
 
-// conversion utils
+  return pathogen
+}
 
-pathogen.nix = pathogen;
+const pathogen = getImplementation('toUnix')
 
-pathogen.sys = function(path) {
-  return new Pathogen(path).toSystem();
-};
+pathogen.nix = pathogen
+pathogen.sys = getImplementation('toSystem')
+pathogen.win = getImplementation('toWindows')
 
-pathogen.win = function(path) {
-  return new Pathogen(path).toWindows();
-};
-
-pathogen.Pathogen = Pathogen; // export the class as well
-
-module.exports = pathogen;
+module.exports = pathogen

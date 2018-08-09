@@ -1,228 +1,118 @@
-"use strict";
+'use strict'
 /* global describe, it */
 
-var expect = require("expect.js");
-
-var pathogen = require("../index");
-var Pathogen = pathogen.Pathogen;
-
-describe("constructor", function() {
-
-  it("should normalize paths", function() {
-    var path = pathogen("../.././././////////some/path");
-    expect(path).to.be("../../some/path");
-  });
-
-  it("should mess with trailing slashes", function() {
-    var path = pathogen("../.././some/path/");
-    expect(path).to.be("../../some/path/");
-  });
-
-  it("should not mess with leading slashes", function() {
-    var path;
-
-    path = pathogen("/some/path/");
-    expect(path).to.be("/some/path/");
-
-    path = pathogen("/../.././some/path/");
-    expect(path).to.be("/some/path/");
-  });
-
-  it("should always normalize . or ./ for relative paths", function() {
-    var path;
-    path = pathogen("./");
-    expect(path).to.be("./");
-
-    path = pathogen("././");
-    expect(path).to.be("./");
-
-    path = pathogen("././../");
-    expect(path).to.be("../");
-
-    path = pathogen(".");
-    expect(path).to.be(".");
-
-    path = pathogen("");
-    expect(path).to.be(".");
-
-    path = pathogen("/");
-    expect(path).to.be("/");
-
-    path = pathogen("/.");
-    expect(path).to.be("/");
-
-    path = pathogen("/./");
-    expect(path).to.be("/");
-
-    path = pathogen("some/path");
-    expect(path).to.be("./some/path");
-
-    path = pathogen("some/path/");
-    expect(path).to.be("./some/path/");
-
-    path = pathogen("./some/path/");
-    expect(path).to.be("./some/path/");
-
-    path = pathogen("./some/path");
-    expect(path).to.be("./some/path");
-  });
-
-  it("should normalize above when it doesnt have a trailing slash", function() {
-    var path;
-
-    path = pathogen("/some/path/../");
-    expect(path).to.be("/some/");
-
-    path = pathogen("/some/path/..");
-    expect(path).to.be("/some");
-
-    path = pathogen("/../.././some/path/../../../../../../");
-    expect(path).to.be("/");
-  });
-
-});
-
-describe("resolve", function() {
-  it("should resolve to the first absolute path", function() {
-    var path = new Pathogen("/");
-    expect(path.resolve().toString()).to.be("/");
-
-    path = pathogen.resolve("/");
-    expect(path).to.be("/");
-
-    path = new Pathogen("abc/def/ghi");
-    expect(path.resolve("/abc").toString()).to.be("/abc");
-
-    path = pathogen.resolve("abc/def/ghi", "/abc");
-    expect(path).to.be("/abc");
-
-    path = new Pathogen("abc/def/ghi");
-    expect(path.resolve("/abc/").toString()).to.be("/abc/");
-
-    path = pathogen.resolve("abc/def/ghi", "/abc/");
-    expect(path).to.be("/abc/");
-
-    path = new Pathogen("f:\\windows\\system32");
-    expect(path.resolve("e:").toWindows()).to.be("e:\\");
-  });
-});
-
-describe("relative", function() {
-  it("should relativize paths directories, not files", function() {
-    var path;
-
-    path = new Pathogen("/a/b/c");
-    expect(path.relative("/a/b/f").toString()).to.be("./f");
-
-    path = new Pathogen("/a/b/c/");
-    expect(path.relative("/a/b/f/").toString()).to.be("../f/");
-
-    path = new Pathogen("a/b/c");
-    expect(path.relative("a/b/c").toString()).to.be("./c");
-
-    path = new Pathogen("c:\\windows\\system32");
-    expect(path.relative("e:\\windows\\").toWindows()).to.be("e:\\windows\\");
-
-    path = new Pathogen("c:\\windows\\system32\\");
-    expect(path.relative("c:\\windows\\drivers\\").toWindows()).to.be("..\\drivers\\");
-
-    path = new Pathogen("/users/kamicane/file.txt");
-    expect(path.relative("/users/kamicane/").toString()).to.be(".");
-
-    path = pathogen.relative("/users/kamicane/file.txt", "/users/kamicane/");
-    expect(path).to.be(".");
-
-    path = new Pathogen("/users/kamicane/");
-    expect(path.relative("/users/kamicane/file.txt").toString()).to.be("./file.txt");
-
-  });
-});
-
-describe("extname", function() {
-  it("should compute the extension name with the dot, or empty string", function() {
-    var path;
-
-    path = new Pathogen("/");
-    expect(path.extname()).to.be("");
-
-    path = new Pathogen("./file.js/");
-    expect(path.extname()).to.be("");
-
-    path = new Pathogen("./file.js");
-    expect(path.extname()).to.be(".js");
-
-    var extname = pathogen.extname("./file.js");
-    expect(extname).to.be(".js");
-  });
-});
-
-describe("dirname", function() {
-  it("should compute the directory name, not file name", function() {
-    var path;
-
-    path = new Pathogen("/");
-    expect(path.dirname().toString()).to.be("/");
-
-    path = pathogen.dirname("/");
-    expect(path).to.be("/");
-
-    path = new Pathogen("a/b/");
-    expect(path.dirname().toString()).to.be("./a/b/");
-
-    path = pathogen.dirname("a/b/");
-    expect(path).to.be("./a/b/");
-
-    path = new Pathogen("a/b");
-    expect(path.dirname().toString()).to.be("./a/");
-
-    path = new Pathogen("a/b/c");
-    expect(path.dirname().toString()).to.be("./a/b/");
-  });
-});
-
-describe("basename", function() {
-  it("should compute the basename, not directory name", function() {
-    var path;
-
-    path = new Pathogen("/");
-    expect(path.basename()).to.be("");
-
-    path = pathogen.basename("/");
-    expect(path).to.be("");
-
-    path = new Pathogen("a/b");
-    expect(path.basename()).to.be("b");
-
-    path = pathogen.basename("a/b");
-    expect(path).to.be("b");
-
-    path = new Pathogen("a/b/");
-    expect(path.basename()).to.be("");
-
-    path = new Pathogen("a/b.x");
-    expect(path.basename()).to.be("b.x");
-  });
-});
-
-describe("toWindows", function() {
-
-  it("should convert windows style paths back and forth", function() {
-    var path;
-
-    path = new Pathogen("f:");
-    expect(path.toString()).to.be("f:/");
-    expect(path.toWindows()).to.be("f:\\");
-
-    path = new Pathogen("some\\folder");
-    expect(path.toWindows()).to.be(".\\some\\folder");
-
-    path = new Pathogen("c:\\windows\\\\system32\\.\\\\\\drivers");
-    expect(path.toString()).to.be("c:/windows/system32/drivers");
-    expect(path.toWindows()).to.be("c:\\windows\\system32\\drivers");
-
-    path = new Pathogen("\\windows\\\\\\system32\\.\\\\\\drivers");
-    expect(path.toString()).to.be("/windows/system32/drivers");
-    expect(path.toWindows()).to.be("\\windows\\system32\\drivers");
-  });
-
-});
+const expect = require('expect.js')
+const pathogen = require('../index')
+
+describe('constructor', function () {
+  it('should normalize paths', function () {
+    expect(pathogen()).to.be('.')
+    expect(pathogen('')).to.be('.')
+    expect(pathogen('.')).to.be('.')
+    expect(pathogen('./')).to.be('.')
+    expect(pathogen('./a')).to.be('./a')
+    expect(pathogen('./a/')).to.be('./a')
+
+    expect(pathogen('../.././././////////some/path')).to.be('../../some/path')
+  })
+
+  it('should join paths', function () {
+    expect(pathogen('a', 'b', 'c')).to.be('./a/b/c')
+    expect(pathogen('./', 'b', 'c')).to.be('./b/c')
+    expect(pathogen('', 'b', 'c')).to.be('./b/c')
+    expect(pathogen('', 'b', 'c', '../', '')).to.be('./b')
+  })
+
+  it('should mess with trailing slashes', function () {
+    expect(pathogen('../.././some/path/')).to.be('../../some/path')
+  })
+
+  it('should not mess with leading slashes', function () {
+    expect(pathogen('/some/path/')).to.be('/some/path')
+    expect(pathogen('/../.././some/path/')).to.be('/some/path')
+  })
+
+  it('should always normalize . or ./ for relative paths', function () {
+    expect(pathogen('./')).to.be('.')
+    expect(pathogen('././')).to.be('.')
+    expect(pathogen('././../')).to.be('..')
+    expect(pathogen('.')).to.be('.')
+    expect(pathogen('')).to.be('.')
+    expect(pathogen('/')).to.be('/')
+    expect(pathogen('/.')).to.be('/')
+    expect(pathogen('/./')).to.be('/')
+    expect(pathogen('some/path')).to.be('./some/path')
+    expect(pathogen('some/path/')).to.be('./some/path')
+    expect(pathogen('./some/path/')).to.be('./some/path')
+    expect(pathogen('./some/path')).to.be('./some/path')
+  })
+
+  it('should normalize above when it doesnt have a trailing slash', function () {
+    expect(pathogen('/some/path/../')).to.be('/some')
+    expect(pathogen('/some/path/..')).to.be('/some')
+    expect(pathogen('/../.././some/path/../../../../../../')).to.be('/')
+  })
+})
+
+describe('resolve', function () {
+  it('should resolve to the first absolute path', function () {
+    expect(pathogen.resolve('/')).to.be('/')
+    expect(pathogen.resolve('abc/def/ghi', '/abc')).to.be('/abc')
+    expect(pathogen.resolve('abc/def/ghi', '/abc')).to.be('/abc')
+    expect(pathogen.resolve('abc/def/ghi', '/abc/')).to.be('/abc')
+    expect(pathogen.resolve('abc/def/ghi', '/abc/')).to.be('/abc')
+    expect(pathogen.win.resolve('f:\\windows\\system32', 'e:')).to.be('e:\\')
+  })
+})
+
+describe('relative', function () {
+  it('should relativize paths', function () {
+    expect(pathogen.relative('/a/b/c', '/a/b/f')).to.be('../f')
+    expect(pathogen.relative('/a/b/c/', '/a/b/f/')).to.be('../f')
+    expect(pathogen.relative('a/b/c', 'a/b/c')).to.be('.')
+    expect(pathogen.win.relative('c:\\windows\\system32', 'e:\\windows\\')).to.be('e:\\windows')
+    expect(pathogen.win.relative('c:\\windows\\system32\\', 'c:\\windows\\drivers\\')).to.be('..\\drivers')
+    expect(pathogen.relative('/users/kamicane/file.txt', '/users/kamicane/')).to.be('..')
+    expect(pathogen.relative('/users/kamicane/file.txt', '/users/kamicane/')).to.be('..')
+    expect(pathogen.relative('/users/kamicane/', '/users/kamicane/file.txt')).to.be('./file.txt')
+  })
+})
+
+describe('extname', function () {
+  it('should compute the extension name with the dot, or empty string', function () {
+    expect(pathogen.extname('/')).to.be('')
+    expect(pathogen.extname('./file.js/')).to.be('.js')
+    expect(pathogen.extname('./file.js')).to.be('.js')
+  })
+})
+
+describe('dirname', function () {
+  it('should compute the directory name', function () {
+    expect(pathogen.dirname('/')).to.be('/')
+    expect(pathogen.dirname('/')).to.be('/')
+    expect(pathogen.dirname('a/b/')).to.be('./a')
+    expect(pathogen.dirname('a/b')).to.be('./a')
+    expect(pathogen.dirname('a/b/c')).to.be('./a/b')
+  })
+})
+
+describe('basename', function () {
+  it('should compute the basename', function () {
+    expect(pathogen.basename('/')).to.be('')
+    expect(pathogen.basename('a/b')).to.be('b')
+    expect(pathogen.basename('a/b/')).to.be('b')
+    expect(pathogen.basename('a/b.x')).to.be('b.x')
+  })
+})
+
+describe('toWindows', function () {
+  it('should properly convert to windows style paths', function () {
+    expect(pathogen('f:')).to.be('f:/')
+    expect(pathogen.win('f:')).to.be('f:\\')
+    expect(pathogen.win('some\\folder')).to.be('.\\some\\folder')
+    expect(pathogen('c:\\windows\\\\system32\\.\\\\\\drivers')).to.be('c:/windows/system32/drivers')
+    expect(pathogen.win('c:\\windows\\\\system32\\.\\\\\\drivers')).to.be('c:\\windows\\system32\\drivers')
+    expect(pathogen('\\windows\\\\\\system32\\.\\\\\\drivers')).to.be('/windows/system32/drivers')
+    expect(pathogen.win('\\windows\\\\\\system32\\.\\\\\\drivers')).to.be('\\windows\\system32\\drivers')
+  })
+})
